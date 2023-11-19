@@ -7,6 +7,9 @@ from tkinter import messagebox, ttk
        FUNCIONES COMUNES INTERFAZ GRÁFICA 
 **************************************************
 '''
+global is_check_conn
+is_check_conn = False
+
 #   Configuración y grid etiquetas
 def config_label(mi_label, fila):
     espaciado_labels = {'column': 0, 'sticky': 'e', 'padx': 10, 'pady': 10}
@@ -45,53 +48,60 @@ def listar_desc():
     lista('DESC')
 
 def lista(orden):
-    class Table():
-        def __init__(self, root2):
-            nombre_cols = ['type', 'title_content', 'director', 'country', 'release_year', 'rating', 'duration', 'listed_in']
-            for i in range(cant_cols):
-                self.e = tk.Entry(frameppal)
-                self.e.config(bg='black', fg='white')
-                self.e.grid(row=0, column=i)
-                self.e.insert(tk.END, nombre_cols[i])
-            for fila in range(cant_filas):
-                for col in range(cant_cols):
+    global is_check_conn
+    if is_check_conn is False:
+        resp = messagebox.askquestion(
+            'CONFIRME', 'No está conectado\n ¿Desea conectar a la base de datos?')
+        if resp == 'yes':
+            conectar()           
+    else:
+        class Table():
+            def __init__(self, root2):
+                nombre_cols = ['type', 'title_content', 'director', 'country', 'release_year', 'rating', 'duration', 'listed_in']
+                for i in range(cant_cols):
                     self.e = tk.Entry(frameppal)
-                    self.e.grid(row=fila+1, column=col)
-                    if resultado[fila][col] is not None:
-                        self.e.insert(tk.END, resultado[fila][col])
-                    else:
-                        self.e.insert(tk.END, '')
-                    self.e.config(state='readonly')
-    root2 = tk.Tk()
-    root2.title('Listado peliculas/series TV')
-    frameppal = tk.Frame(root2)
-    frameppal.pack(fill='both')
-    framecerrar = tk.Frame(root2)
-    framecerrar.config(bg=color_texto_boton)
-    framecerrar.pack(fill='both')
-    boton_cerrar = tk.Button(framecerrar, text='CERRAR', command=root2.destroy)
-    boton_cerrar.config(bg=color_fondo_boton,
-                        fg=color_texto_boton, pady=10, padx=0)
-    boton_cerrar.pack(fill='both')
-    # obtengo los datos
-    conn = sq3.connect('netflix_oscar.db')
-    cur = conn.cursor()
-    query1 = f'''
-            SELECT content.type, content.title_content, content.director,
-            content.country, content.release_year, content.rating, 
-            content.duration, content.listed_in
-            FROM content
-            WHERE see_content LIKE TRUE
-            ORDER BY id_content {orden} LIMIT 40
-            '''
-    cur.execute(query1)
-    resultado = cur.fetchall()
-    # la cantidad de registros para saber cuántas filas
-    cant_filas = len(resultado)
-    cant_cols = len(resultado[0])  # obtengo la cantidad de columnas
-    tabla = Table(frameppal)
-    conn.close()
-    root2.mainloop()
+                    self.e.config(bg='black', fg='white')
+                    self.e.grid(row=0, column=i)
+                    self.e.insert(tk.END, nombre_cols[i])
+                for fila in range(cant_filas):
+                    for col in range(cant_cols):
+                        self.e = tk.Entry(frameppal)
+                        self.e.grid(row=fila+1, column=col)
+                        if resultado[fila][col] is not None:
+                            self.e.insert(tk.END, resultado[fila][col])
+                        else:
+                            self.e.insert(tk.END, '')
+                        self.e.config(state='readonly')
+        root2 = tk.Tk()
+        root2.title('Listado peliculas/series TV')
+        frameppal = tk.Frame(root2)
+        frameppal.pack(fill='both')
+        framecerrar = tk.Frame(root2)
+        framecerrar.config(bg=color_texto_boton)
+        framecerrar.pack(fill='both')
+        boton_cerrar = tk.Button(framecerrar, text='CERRAR', command=root2.destroy)
+        boton_cerrar.config(bg=color_fondo_boton,
+                            fg=color_texto_boton, pady=10, padx=0)
+        boton_cerrar.pack(fill='both')
+        # obtengo los datos
+        conn = sq3.connect('netflix_oscar.db')
+        cur = conn.cursor()
+        query1 = f'''
+                SELECT content.type, content.title_content, content.director,
+                content.country, content.release_year, content.rating, 
+                content.duration, content.listed_in
+                FROM content
+                WHERE see_content LIKE TRUE
+                ORDER BY id_content {orden} LIMIT 40
+                '''
+        cur.execute(query1)
+        resultado = cur.fetchall()
+        # la cantidad de registros para saber cuántas filas
+        cant_filas = len(resultado)
+        cant_cols = len(resultado[0])  # obtengo la cantidad de columnas
+        tabla = Table(frameppal)
+        conn.close()
+        root2.mainloop()
 
 #   Licencia...
 def mostrar_licencia():
@@ -159,8 +169,8 @@ def mensaje_registro(*campo):
 # *********** MENU **************
 #   BBDD
 #       Conexión
-global is_check_conn
-is_check_conn = False
+# global is_check_conn
+# is_check_conn = False
 
 def conectar():
     global conn
@@ -262,7 +272,7 @@ def crear():
             else:
                 datos = type.get(), title_content.get(), director.get(), country.get(), release_year.get(), rating.get(), duration.get(), listed_in.get()
                 cur.execute('INSERT INTO content (type, title_content, director, country, release_year, rating, duration, listed_in) VALUES (?,?,?,?,?,?,?,?)', datos)
-                # conn.commit()
+                conn.commit()
                 mensaje_registro(datos, 'agregado')
                 limpiar()
                 break
@@ -272,13 +282,16 @@ def crear():
 # READ
 def leer_general():
     while is_check_conn:
-        resultado_titulo = leer_campo(title_content.get(), 'título',
-            'title_content')
-        if resultado_titulo == []:
-            mensaje_campo_existe_o_no(title_content.get(), 'título', 'no')
+        resultado_titulo = leer_campo(title_content.get(), 'título', 'title_content') 
+        if resultado_titulo is not None:            
+            if (resultado_titulo == []):                
+                mensaje_campo_existe_o_no(title_content.get(), 'título', 'no')
+                break
+            else:                
+                rellenar_campos(resultado_titulo)
+                break
         else:
-            rellenar_campos(resultado_titulo)
-        break
+            break
     else:
         mensaje_noconectado()
 
@@ -286,32 +299,34 @@ def leer_general():
 def actualizar():
     while is_check_conn:
         resultado_titulo = leer_campo(title_content.get(), 'título', 'title_content')
-        if resultado_titulo == []:
-            mensaje_campo_existe_o_no(title_content.get(), 'título', 'no')
-            break
-        # type: ignore
+        if resultado_titulo is not None:
+            if (resultado_titulo == []):
+                mensaje_campo_existe_o_no(title_content.get(), 'título', 'no')
+                break
+            # type: ignore
+            else:
+                rellenar_campos(resultado_titulo)
+                messagebox.showinfo('INFORMACIÓN',
+                    'Realize el cambio se interes y luego haga clic en enter en cualquier campo luego de realizar las modificaciones necesarias y posibles')
+                type_option.bind('<Return>', ejecutar)
+                country_option.bind('<Return>', ejecutar)
+                release_year.bind('<Return>', ejecutar)
+                rating_option.bind('<Return>', ejecutar)
+                duration_option.bind('<Return>', ejecutar)
+                listed_in_option.bind('<Return>', ejecutar)
+                break
         else:
-            rellenar_campos(resultado_titulo)
-            messagebox.showinfo('INFORMACIÓN',
-                'Realize el cambio se interes y luego haga clic en enter en cualquier campo luego de realizar las modificaciones necesarias y posibles')
-            type_option.bind('<Return>', ejecutar)
-            country_option.bind('<Return>', ejecutar)
-            release_year.bind('<Return>', ejecutar)
-            rating_option.bind('<Return>', ejecutar)
-            duration_option.bind('<Return>', ejecutar)
-            listed_in_option.bind('<Return>', ejecutar)
             break
     else:
         mensaje_noconectado()
 
 
 def ejecutar(event):
-    while is_check_conn:
-        datos = type.get(), title_content.get(), country.get(),
-        release_year.get(), rating.get(), duration.get(), listed_in.get()
-        cur.execute(f'UPDATE content SET type = ?, title_content = ?, country = ?, release_year= ?, rating= ?, duration= ?, listed_in= ? WHERE title_content LIKE "{title_content.get()}"', datos)
-        # conn.commit()
-        mensaje_registro(datos, 'actualizado')
+    while is_check_conn:        
+        datos = type.get(), title_content.get(), country.get(),release_year.get(), rating.get(), duration.get(), listed_in.get()          
+        cur.execute(f'UPDATE content SET type = ?, title_content = ?, country = ?, release_year= ?, rating= ?, duration= ?, listed_in= ? WHERE title_content LIKE "{title_content.get()}"', datos)        
+        conn.commit()        
+        mensaje_registro(datos, 'actualizado')        
         limpiar()
         break
     else:
@@ -321,18 +336,21 @@ def ejecutar(event):
 def borrar():
     while is_check_conn:
         resultado_titulo = leer_campo(title_content.get(), 'título', 'title_content')
-        if resultado_titulo == []:
-            mensaje_campo_existe_o_no(title_content.get(), 'título', 'no')
-            break
-        rellenar_campos(resultado_titulo)
-        respuesta = messagebox.askquestion(
-            'BORRAR', '¿Desea eliminar el registro?')
-        if respuesta == 'yes':
-            cur.execute(f'DELETE FROM content WHERE title_content LIKE "{title_content.get()}"')
-            # conn.commit()
-            mensaje_registro(resultado_titulo[0], 'eliminado')  # type: ignore
-            limpiar()
-            break
+        if resultado_titulo is not None:
+            if resultado_titulo == []:
+                mensaje_campo_existe_o_no(title_content.get(), 'título', 'no')
+                break
+            rellenar_campos(resultado_titulo)
+            respuesta = messagebox.askquestion(
+                'BORRAR', '¿Desea eliminar el registro?')
+            if respuesta == 'yes':
+                cur.execute(f'DELETE FROM content WHERE title_content LIKE "{title_content.get()}"')
+                conn.commit()
+                mensaje_registro(resultado_titulo[0], 'eliminado')  # type: ignore
+                limpiar()
+                break
+            else:
+                break
         else:
             break
     else:
